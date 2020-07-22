@@ -1,0 +1,23 @@
+fileFormatVersion: 2
+guid: af63189a109b62a409f270eb1e29f35c
+TrueTypeFontImporter:
+  externalObjects: {}
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontName: Baliday
+  fontNames:
+  - Baliday
+  fallbackFontReferences:
+  - {fileID: 12800000, guid: 377591c4deace894889c28136bd0e843, type: 3}
+  customCharacters: 
+  fontRenderingMode: 0
+  ascentCalculationMode: 1
+  useLegacyBoundsCalculation: 0
+  shouldRoundAdvanceValue: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

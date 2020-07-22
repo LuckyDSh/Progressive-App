@@ -1,0 +1,23 @@
+fileFormatVersion: 2
+guid: 3b38a28f9fb2d6740b9ac40479621960
+TrueTypeFontImporter:
+  externalObjects: {}
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontName: Chucky buck demo
+  fontNames:
+  - Chucky buck demo
+  fallbackFontReferences:
+  - {fileID: 12800000, guid: 17da7aec76cf3d3408839fee430fb6a9, type: 3}
+  customCharacters: 
+  fontRenderingMode: 0
+  ascentCalculationMode: 1
+  useLegacyBoundsCalculation: 0
+  shouldRoundAdvanceValue: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

@@ -1,0 +1,17 @@
+{
+    "name": "Unity.UIWidgets.Editor",
+    "references": [
+        "Unity.UIWidgets"
+    ],
+    "includePlatforms": [
+        "Android",
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": []
+}
