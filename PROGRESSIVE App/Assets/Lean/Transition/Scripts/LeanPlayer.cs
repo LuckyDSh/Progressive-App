@@ -13,20 +13,59 @@ namespace Lean.Transition
 	[System.Serializable]
 	public class LeanPlayer
 	{
+		[System.Serializable]
+		public class Alias
+		{
+			public string Key;
+			public Object Obj;
+
+			[System.NonSerialized]
+			public System.Type Type;
+		}
+
+		[System.Serializable]
+		public class Entry
+		{
+			public Transform Root { set { root = value; } get { return root; } } [SerializeField] private Transform root;
+
+			public float Speed { set { speed = value; } get { return speed; } } [SerializeField] private float speed;
+
+			public List<Alias> Aliases { get { if (aliases == null) aliases = new List<Alias>(); return aliases; } } [SerializeField] private List<Alias> aliases;
+
+			public void AddAlias(string key, Object obj)
+			{
+				foreach (var alias in Aliases)
+				{
+					if (alias.Key == key)
+					{
+						alias.Key = key;
+
+						return;
+					}
+				}
+
+				aliases.Add(new Alias() { Key = key, Obj = obj });
+			}
+		}
+
+		// Legacy
 		[SerializeField]
-		private float speed;
+		private float speed = -1.0f;
+
+		// Legacy
+		[SerializeField]
+		private List<Transform> roots = null;
+
+		// Legacy
+		[SerializeField]
+		private List<string> aliases = null;
+
+		// Legacy
+		[SerializeField]
+		private List<Object> targets = null;
 
 		[SerializeField]
-		private List<Transform> roots;
-
-		[SerializeField]
-		private List<string> aliases;
-
-		[SerializeField]
-		private List<Object> targets;
-
-		[System.NonSerialized]
-		private List<System.Type> types;
+		private List<Entry> entries;
 
 		public float Speed
 		{
@@ -41,108 +80,119 @@ namespace Lean.Transition
 			}
 		}
 
-		public List<System.Type> Types
+		private static Dictionary<string, Alias> tempAliases = new Dictionary<string, Alias>();
+
+		/// <summary>This stores a list of all <b>Transform</b>s containing transitions that will be played, and their settings.</summary>
+		public List<Entry> Entries
 		{
 			get
 			{
-				return types;
-			}
-		}
-
-		private static Dictionary<string, Object> aliasTargetPairs = new Dictionary<string, Object>();
-
-		/// <summary>These transforms store the transition components. This can be in the scene, or in a prefab.
-		/// NOTE: If it's in a prefab then you will likely need to use the Add method to associate objects with an alias so they can be replaced at runtime. This is because prefabs can't reference scene objects normally.</summary>
-		public List<Transform> Roots
-		{
-			get
-			{
-				if (roots == null)
+				if (entries == null)
 				{
-					roots = new List<Transform>();
+					entries = new List<Entry>();
 				}
 
-				return roots;
+				return entries;
 			}
 		}
 
-		/// <summary>This method allows you to register the target object with the specified alias.</summary>
-		public void Add(string alias, Object target)
+		public void Validate(bool validateEntries)
 		{
-			if (aliases == null) aliases = new List<string>();
-			if (targets == null) targets = new List<Object>();
-
-			if (aliases.Count != targets.Count)
+			if (roots != null && roots.Count > 0)
 			{
-				Rebuild();
+				Entries.Clear();
+
+				foreach (var root in roots)
+				{
+					if (root != null)
+					{
+						entries.Add(new Entry() { Root = root, Speed = speed > 0.0f ? speed : -1.0f });
+					}
+				}
+
+				roots.Clear();
 			}
 
-			for (var i = aliases.Count - 1; i >= 0; i--)
+			if (Entries.Count == 0)
 			{
-				if (aliases[i] == alias)
-				{
-					targets[i] = target;
+				entries.Add(new Entry());
+			}
 
-					return;
+			if (aliases != null && aliases.Count > 0 && targets != null && targets.Count > 0)
+			{
+				var min = System.Math.Min(aliases.Count, targets.Count);
+
+				for (var i = 0; i < min; i++)
+				{
+					foreach (var entry in Entries)
+					{
+						entry.AddAlias(aliases[i], targets[i]);
+					}
+				}
+
+				aliases.Clear();
+				targets.Clear();
+			}
+
+			if (validateEntries == true)
+			{
+				foreach (var entry in Entries)
+				{
+					if (entry != null)
+					{
+						var pairs = LeanTransition.FindAllAliasTypePairs(entry.Root);
+
+						// Move entry.Aliases into dictionary
+						foreach (var alias in entry.Aliases)
+						{
+							tempAliases.Add(alias.Key, alias);
+						}
+
+						entry.Aliases.Clear();
+
+						// Rebuild entry.Aliases from dictionaries
+						foreach (var pair in pairs)
+						{
+							Alias alias;
+
+							// Use existing by set type again (it's non-serialized, so it must be set again)
+							if (tempAliases.TryGetValue(pair.Key, out alias) == true)
+							{
+								alias.Type = pair.Value;
+
+								entry.Aliases.Add(alias);
+							}
+							// Use new
+							else
+							{
+								entry.Aliases.Add(new Alias() { Key = pair.Key, Type = pair.Value });
+							}
+						}
+
+						// Discard remaining
+						tempAliases.Clear();
+					}
 				}
 			}
-
-			aliases.Add(alias);
-			targets.Add(target);
 		}
 
-		/// <summary>This method will begin this transition.</summary>
+		/// <summary>This method will begin all transition entries.</summary>
 		public void Begin()
 		{
-			LeanTransition.CurrentAliases.Clear();
+			Validate(false);
 
-			if (aliases != null && targets != null && aliases.Count == targets.Count)
+			if (entries != null)
 			{
-				for (var i = aliases.Count - 1; i >= 0; i--)
+				LeanTransition.CurrentAliases.Clear();
+
+				foreach (var entry in entries)
 				{
-					LeanTransition.CurrentAliases.Add(aliases[i], targets[i]);
-				}
-			}
+					foreach (var alias in entry.Aliases)
+					{
+						LeanTransition.AddAlias(alias.Key, alias.Obj);
+					}
 
-			LeanTransition.BeginTransitions(roots, speed);
-		}
-
-		/// <summary>This method allows you to rebuild the alias and target associations.</summary>
-		public void Rebuild()
-		{
-			if (aliases == null) aliases = new List<string>();
-			if (targets == null) targets = new List<Object>();
-			if (types   == null) types   = new List<System.Type>();
-
-			var count = System.Math.Min(aliases.Count, targets.Count);
-
-			aliasTargetPairs.Clear();
-
-			for (var i = 0; i < count; i++)
-			{
-				aliasTargetPairs.Add(aliases[i], targets[i]);
-			}
-
-			aliases.Clear();
-			targets.Clear();
-			types.Clear();
-
-			var aliasTypePairs = LeanTransition.FindAllAliasTypePairs(roots);
-
-			foreach (var aliasTypePair in aliasTypePairs)
-			{
-				var target = default(Object);
-
-				aliases.Add(aliasTypePair.Key);
-				types.Add(aliasTypePair.Value);
-
-				if (aliasTargetPairs.TryGetValue(aliasTypePair.Key, out target) == true)
-				{
-					targets.Add(target);
-				}
-				else
-				{
-					targets.Add(default(Object));
+					LeanTransition.BeginAllTransitions(entry.Root, entry.Speed);
 				}
 			}
 		}
@@ -155,160 +205,98 @@ namespace Lean.Transition
 	[CustomPropertyDrawer(typeof(LeanPlayer))]
 	public class LeanPlayerDrawer : PropertyDrawer
 	{
-		private static Color color;
-		private static float height;
-		private static float heightStep;
-
-		private void Validate(SerializedProperty property)
-		{
-			property.serializedObject.ApplyModifiedProperties();
-
-			var sRoots = property.FindPropertyRelative("roots");
-
-			if (sRoots.arraySize == 0)
-			{
-				sRoots.arraySize = 1; sRoots.serializedObject.ApplyModifiedProperties();
-			}
-
-			foreach (var targetObject in property.serializedObject.targetObjects)
-			{
-				var transitions = LeanHelper.GetObjectFromSerializedProperty<LeanPlayer>(targetObject, property);
-
-				transitions.Rebuild();
-			}
-
-			property.serializedObject.Update();
-		}
+		private static Color  color;
+		private static float  height;
+		private static float  heightStep;
+		private static string title;
+		private static string tooltip;
 
 		public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
 		{
-			Validate(property);
-
-			property.serializedObject.Update();
-
-			var sSpeed   = property.FindPropertyRelative("speed");
-			var sRoots   = property.FindPropertyRelative("roots");
-			var sAliases = property.FindPropertyRelative("aliases");
-			var sTargets = property.FindPropertyRelative("targets");
-			var count    = System.Math.Min(sAliases.arraySize, sTargets.arraySize);
-
 			height     = base.GetPropertyHeight(property, label);
 			heightStep = height + 2.0f;
 
-			return height + (sSpeed.floatValue > 0.0f ? heightStep : 0.0f) + (sRoots.arraySize - 1) * heightStep + count * heightStep;
-		}
+			ValidateAndUpdate(property.serializedObject, property);
 
-		private void DrawRoot(GUIContent label, Rect position, SerializedObject sObject, SerializedProperty sSpeed, SerializedProperty sRoots, SerializedProperty sRoot, int index)
-		{
-			var e     = Event.current;
-			var rectL = position; rectL.width = EditorGUIUtility.labelWidth - 16.0f;
-			var rectR = position; rectR.xMin += EditorGUIUtility.labelWidth;
+			var count    = 0;
+			var sEntries = property.FindPropertyRelative("entries");
 
-			if (e.isMouse == true && e.button == 1 && rectL.Contains(e.mousePosition) == true)
+			for (var i = 0; i < sEntries.arraySize; i++)
 			{
-				var menu          = new GenericMenu();
-				var methodPrefabs = AssetDatabase.FindAssets("t:GameObject").
-					Select((guid) => AssetDatabase.LoadAssetAtPath<GameObject>(AssetDatabase.GUIDToAssetPath(guid))).
-					Where((prefab) => prefab.GetComponent<LeanMethod>() != null);
-				var targetComponent = sObject.targetObject as Component;
+				var sEntry   = sEntries.GetArrayElementAtIndex(i);
+				var sSpeed   = sEntry.FindPropertyRelative("speed");
+				var sAliases = sEntry.FindPropertyRelative("aliases");
 
-				if (targetComponent != null)
+				if (sSpeed.floatValue >= 0.0f)
 				{
-					if (sRoot.objectReferenceValue == null)
-					{
-						var title = label.text;
-
-						menu.AddItem(new GUIContent("Create"), false, () =>
-							{
-								var root = new GameObject("[" + title + "]").transform;
-
-								root.SetParent(targetComponent.transform, false);
-
-								sRoots.GetArrayElementAtIndex(index).objectReferenceValue = root;
-								sObject.ApplyModifiedProperties();
-
-								Selection.activeTransform = root;
-							});
-					}
-					else
-					{
-						menu.AddItem(new GUIContent("Add"), false, () =>
-						{
-							sRoots.InsertArrayElementAtIndex(index + 1);
-							sRoots.GetArrayElementAtIndex(index + 1).objectReferenceValue = null;
-							sObject.ApplyModifiedProperties();
-						});
-					}
+					count++;
 				}
 
-				if (sSpeed.floatValue <= 0.0f)
-				{
-					menu.AddItem(new GUIContent("Speed"), false, () =>
-						{
-							sSpeed.floatValue = 1.0f;
-							sObject.ApplyModifiedProperties();
-						});
-				}
-				else
-				{
-					menu.AddItem(new GUIContent("Speed"), true, () =>
-						{
-							sSpeed.floatValue = 0.0f;
-							sObject.ApplyModifiedProperties();
-						});
-				}
+				count += sAliases.arraySize;
 
-				menu.AddSeparator("");
-
-				foreach (var methodPrefab in methodPrefabs)
-				{
-					var root = methodPrefab.transform;
-
-					menu.AddItem(new GUIContent("Prefab/" + methodPrefab.name), false, () =>
-						{
-							sRoot.objectReferenceValue = root;
-							sObject.ApplyModifiedProperties();
-						});
-				}
-
-				menu.AddSeparator("");
-
-				menu.AddItem(new GUIContent("Remove"), false, () =>
-					{
-						sRoots.GetArrayElementAtIndex(index).objectReferenceValue = null;
-						sRoots.DeleteArrayElementAtIndex(index);
-						sObject.ApplyModifiedProperties();
-					});
-
-				menu.ShowAsContext();
+				count++;
 			}
 
-			EditorGUI.LabelField(rectL, label);
-
-			EditorGUI.PropertyField(rectR, sRoot, GUIContent.none);
+			return height + heightStep * System.Math.Max(0, count - 1);
 		}
 
-		private void DrawAliasTarget(Rect position, SerializedProperty sAlias, SerializedProperty sTarget, System.Type type)
+		public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
 		{
-			EditorGUI.showMixedValue = sAlias.hasMultipleDifferentValues || sTarget.hasMultipleDifferentValues;
+			var player   = LeanHelper.GetObjectFromSerializedProperty<LeanPlayer>(property.serializedObject.targetObject, property);
+			var sObject  = property.serializedObject;
+			var sEntries = property.FindPropertyRelative("entries");
 
-			if (sTarget.objectReferenceValue == null)
+			DrawPlay(position, sObject);
+
+			color   = GUI.color; position.height = height;
+			title   = label.text;
+			tooltip = label.tooltip;
+
+			for (var i = 0; i < sEntries.arraySize; i++)
 			{
-				GUI.color = Color.red;
+				var entry    = player.Entries[i];
+				var sEntry   = sEntries.GetArrayElementAtIndex(i);
+				var sRoot    = sEntry.FindPropertyRelative("root");
+				var sSpeed   = sEntry.FindPropertyRelative("speed");
+				var sAliases = sEntry.FindPropertyRelative("aliases");
+				var rectL    = position; rectL.width = EditorGUIUtility.labelWidth - 16.0f;
+				var rectR    = position; rectR.xMin += EditorGUIUtility.labelWidth;
+
+				if (Event.current.isMouse == true && Event.current.button == 1 && rectL.Contains(Event.current.mousePosition) == true)
+				{
+					Event.current.Use();
+					ShowMenu(sObject, sEntries, i, sRoot, sSpeed, title);
+				}
+			
+				EditorGUI.PropertyField(position, sRoot, new GUIContent(title, tooltip)); position.y += heightStep;
+				EditorGUI.indentLevel++;
+					if (sSpeed.floatValue >= 0.0f)
+					{
+						EditorGUI.PropertyField(position, sSpeed); position.y += heightStep;
+					}
+
+					for (var j = 0; j < sAliases.arraySize; j++)
+					{
+						var alias  = entry.Aliases[j];
+						var sAlias = sAliases.GetArrayElementAtIndex(j);
+						var sKey   = sAlias.FindPropertyRelative("Key");
+						var sObj   = sAlias.FindPropertyRelative("Obj");
+
+						EditorGUI.BeginChangeCheck();
+
+						EditorGUI.showMixedValue = sObj.hasMultipleDifferentValues;
+							var obj = EditorGUI.ObjectField(position, new GUIContent(sKey.stringValue, ""), alias.Obj, alias.Type, true); position.y += heightStep;
+						EditorGUI.showMixedValue = false;
+
+						if (EditorGUI.EndChangeCheck() == true)
+						{
+							sObj.objectReferenceValue = obj;
+						}
+					}
+				EditorGUI.indentLevel--;
 			}
-
-			EditorGUI.BeginChangeCheck();
-
-			var target = EditorGUI.ObjectField(position, new GUIContent(sAlias.stringValue, ""), sTarget.objectReferenceValue, type, true);
 
 			GUI.color = color;
-
-			EditorGUI.showMixedValue = false;
-
-			if (EditorGUI.EndChangeCheck() == true)
-			{
-				sTarget.objectReferenceValue = target;
-			}
 		}
 
 		private void DrawPlay(Rect position, SerializedObject sObject)
@@ -316,7 +304,7 @@ namespace Lean.Transition
 			var rectL = position; rectL.xMin += EditorGUIUtility.labelWidth - 15.0f; rectL.width = 14.0f; rectL.yMin += 1.0f; rectL.yMax -= 1.0f;
 			var rectR = rectL; rectR.y -= 1.0f;
 
-			if (GUI.Button(rectL, new GUIContent("", "Clicking this will play the transition now.")) == true)
+			if (GUI.Button(rectL, new GUIContent("", "Clicking this will play the transitions now.")) == true)
 			{
 				foreach (var targetObject in sObject.targetObjects)
 				{
@@ -327,51 +315,100 @@ namespace Lean.Transition
 			GUI.Label(rectR, "▶", EditorStyles.centeredGreyMiniLabel);
 		}
 
-		private void DrawAliases(Rect position, SerializedObject sObject, SerializedProperty property)
+		private void ShowMenu(SerializedObject sObject, SerializedProperty sEntries, int index, SerializedProperty sRoot, SerializedProperty sSpeed, string title)
 		{
-			var sAliases   = property.FindPropertyRelative("aliases");
-			var sTargets   = property.FindPropertyRelative("targets");
-			var aliasCount = System.Math.Min(sAliases.arraySize, sTargets.arraySize);
-			var aliasTypes = LeanHelper.GetObjectFromSerializedProperty<LeanPlayer>(sObject.targetObject, property).Types;
+			var menu          = new GenericMenu();
+			var methodPrefabs = AssetDatabase.FindAssets("t:GameObject").
+				Select((guid) => AssetDatabase.LoadAssetAtPath<GameObject>(AssetDatabase.GUIDToAssetPath(guid))).
+				Where((prefab) => prefab.GetComponent<LeanMethod>() != null);
+			var targetComponent = sObject.targetObject as Component;
 
-			for (var i = 0; i < aliasCount; i++)
+			if (targetComponent != null)
 			{
-				DrawAliasTarget(position, sAliases.GetArrayElementAtIndex(i), sTargets.GetArrayElementAtIndex(i), aliasTypes[i]); position.y += height;
-			}
-		}
-
-		public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
-		{
-			Validate(property);
-
-			color = GUI.color;
-			position.height = height;
-
-			var sObject = property.serializedObject;
-			var sSpeed  = property.FindPropertyRelative("speed");
-			var sRoots  = property.FindPropertyRelative("roots");
-
-			if (sRoots.arraySize > 0)
-			{
-				DrawPlay(new Rect(position.x, position.y, position.width, height * sRoots.arraySize), sObject);
-
-				for (var i = 0; i < sRoots.arraySize; i++)
+				if (sRoot.objectReferenceValue == null)
 				{
-					var sRoot = sRoots.GetArrayElementAtIndex(i); DrawRoot(label, position, sObject, sSpeed, sRoots, sRoot, i); position.y += height;
+					menu.AddItem(new GUIContent("Create"), false, () =>
+						{
+							var root = new GameObject("[" + title + "]").transform;
+
+							root.SetParent(targetComponent.transform, false);
+
+							sRoot.objectReferenceValue = root;
+							sObject.ApplyModifiedProperties();
+
+							Selection.activeTransform = root;
+						});
+				}
+				else
+				{
+					menu.AddItem(new GUIContent("Add"), false, () =>
+					{
+						sEntries.InsertArrayElementAtIndex(index + 1);
+						var sEntry = sEntries.GetArrayElementAtIndex(index + 1);
+						sEntry.FindPropertyRelative("root").objectReferenceValue = null;
+						sEntry.FindPropertyRelative("speed").floatValue = -1.0f;
+						sEntry.FindPropertyRelative("aliases").arraySize = 0;
+						sObject.ApplyModifiedProperties();
+					});
 				}
 			}
 
-			EditorGUI.indentLevel++;
-
-			if (sSpeed.floatValue > 0.0f)
+			if (sSpeed.floatValue <= -1.0f)
 			{
-				EditorGUI.PropertyField(position, sSpeed); position.y += height;
+				menu.AddItem(new GUIContent("Speed"), false, () =>
+					{
+						sSpeed.floatValue = 1.0f;
+						sObject.ApplyModifiedProperties();
+					});
+			}
+			else
+			{
+				menu.AddItem(new GUIContent("Speed"), true, () =>
+					{
+						sSpeed.floatValue = -1.0f;
+						sObject.ApplyModifiedProperties();
+					});
 			}
 
-			DrawAliases(position, sObject, property);
-			EditorGUI.indentLevel--;
+			menu.AddSeparator("");
 
-			GUI.color = color;
+			foreach (var methodPrefab in methodPrefabs)
+			{
+				var root = methodPrefab.transform;
+
+				menu.AddItem(new GUIContent("Prefab/" + methodPrefab.name), false, () =>
+					{
+						sRoot.objectReferenceValue = root;
+						sObject.ApplyModifiedProperties();
+					});
+			}
+
+			menu.AddSeparator("");
+
+			menu.AddItem(new GUIContent("Remove"), false, () =>
+				{
+					sEntries.DeleteArrayElementAtIndex(index);
+					sObject.ApplyModifiedProperties();
+				});
+
+			menu.ShowAsContext();
+		}
+
+		private void ValidateAndUpdate(SerializedObject sObject, SerializedProperty sPlayer)
+		{
+			sObject.ApplyModifiedProperties();
+
+			foreach (var targetObject in sObject.targetObjects)
+			{
+				var player = LeanHelper.GetObjectFromSerializedProperty<LeanPlayer>(targetObject, sPlayer);
+
+				if (player != null)
+				{
+					player.Validate(true);
+				}
+			}
+
+			sObject.Update();
 		}
 	}
 }

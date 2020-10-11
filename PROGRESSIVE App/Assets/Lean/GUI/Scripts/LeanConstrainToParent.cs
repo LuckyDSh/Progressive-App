@@ -11,6 +11,12 @@ namespace Lean.Gui
 	[AddComponentMenu(LeanGui.ComponentMenuPrefix + "Constrain To Parent")]
 	public class LeanConstrainToParent : MonoBehaviour
 	{
+		/// <summary>Constrain horizontally?</summary>
+		public bool Horizontal { set { horizontal = value; } get { return horizontal; } } [SerializeField] private bool horizontal = true;
+
+		/// <summary>Constrain vertically?</summary>
+		public bool Vertical { set { vertical = value; } get { return vertical; } } [SerializeField] private bool vertical = true;
+
 		[System.NonSerialized]
 		private RectTransform cachedParentRectTransform;
 
@@ -35,13 +41,21 @@ namespace Lean.Gui
 				var rect             = cachedRectTransform.rect;
 				var boundary         = cachedParentRectTransform.rect;
 
-				boundary.xMin -= rect.xMin;
-				boundary.xMax -= rect.xMax;
-				boundary.yMin -= rect.yMin;
-				boundary.yMax -= rect.yMax;
+				if (horizontal == true)
+				{
+					boundary.xMin -= rect.xMin;
+					boundary.xMax -= rect.xMax;
 
-				anchoredPosition.x = Mathf.Clamp(anchoredPosition.x, boundary.xMin, boundary.xMax);
-				anchoredPosition.y = Mathf.Clamp(anchoredPosition.y, boundary.yMin, boundary.yMax);
+					anchoredPosition.x = Mathf.Clamp(anchoredPosition.x, boundary.xMin, boundary.xMax);
+				}
+
+				if (vertical == true)
+				{
+					boundary.yMin -= rect.yMin;
+					boundary.yMax -= rect.yMax;
+
+					anchoredPosition.y = Mathf.Clamp(anchoredPosition.y, boundary.yMin, boundary.yMax);
+				}
 
 				cachedRectTransform.anchoredPosition = anchoredPosition;
 			}
@@ -58,6 +72,8 @@ namespace Lean.Gui
 	{
 		protected override void DrawInspector()
 		{
+			Draw("horizontal", "Constrain horizontally?");
+			Draw("vertical", "Constrain vertically?");
 		}
 	}
 }

@@ -83,6 +83,8 @@ public class Timer : MonoBehaviour
         }
     }
 
+    #endregion
+
     public void SetOn()
     {
         isOn = true;
@@ -112,8 +114,4 @@ public class Timer : MonoBehaviour
         pause.SetActive(false);
         loop.SetActive(false);
     }
-
-    #endregion
-
-
 }

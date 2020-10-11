@@ -111,12 +111,12 @@ namespace Lean.Gui
 
 		private void DrawState()
 		{
-			var state = Target.State;
+			var state = tgt.State;
 
 			EditorGUI.BeginChangeCheck();
 
 			EditorGUI.showMixedValue = Any(t => t.State != state);
-				state = EditorGUILayout.IntSlider("State", state, 0, Target.States.Count - 1);
+				state = EditorGUILayout.IntSlider("State", state, 0, tgt.States.Count - 1);
 			EditorGUI.showMixedValue = false;
 
 			if (EditorGUI.EndChangeCheck() == true)

@@ -170,7 +170,7 @@ namespace Lean.Transition
 
 			if (data != null)
 			{
-				var state = data.GetValue(Target) as LeanState;
+				var state = data.GetValue(tgt) as LeanState;
 
 				if (state != null && state.CanFill > -1)
 				{
@@ -218,11 +218,11 @@ namespace Lean.Transition
 
 			if (string.IsNullOrEmpty(sAlias.stringValue) == false)
 			{
-				var methodST      = (LeanMethodWithStateAndTarget)Target;
+				var methodST      = (LeanMethodWithStateAndTarget)tgt;
 				var expectedType  = methodST.GetTargetType();
 				var expectedAlias = sAlias.stringValue;
 
-				foreach (var method in Target.GetComponents<LeanMethodWithStateAndTarget>())
+				foreach (var method in tgt.GetComponents<LeanMethodWithStateAndTarget>())
 				{
 					var methodTargetType = method.GetTargetType();
 
@@ -246,7 +246,7 @@ namespace Lean.Transition
 
 		private void DrawAutoFill(System.Reflection.FieldInfo data)
 		{
-			var state = data.GetValue(Target) as LeanState;
+			var state = data.GetValue(tgt) as LeanState;
 
 			if (state != null && state.CanFill > -1)
 			{
@@ -269,7 +269,7 @@ namespace Lean.Transition
 			{
 				var sTarget = serializedObject.FindProperty("Data.Target");
 				var sAlias  = serializedObject.FindProperty("Alias");
-				var data    = Target.GetType().GetField("Data");
+				var data    = tgt.GetType().GetField("Data");
 
 				Draw("Data.Duration", "The transition will complete after this many seconds.");
 

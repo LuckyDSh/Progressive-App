@@ -12,6 +12,7 @@ public class StopWatch : MonoBehaviour
 
     #region Variables
     public TextMeshProUGUI watchText;
+    public static TextMeshProUGUI watchTextCopy;
     public float time;
     public float prime = 1f;
     [HideInInspector]
@@ -41,6 +42,8 @@ public class StopWatch : MonoBehaviour
 
     void Update()
     {
+        watchTextCopy = watchText;
+
         if (isOn && !paused)
         {
             time += Time.deltaTime * prime;
@@ -88,6 +91,7 @@ public class StopWatch : MonoBehaviour
     public void SetOff()
     {
         isOn = false;
+        AddLoop.loopTimeText.text = "";
     }
 
     public void Pause()

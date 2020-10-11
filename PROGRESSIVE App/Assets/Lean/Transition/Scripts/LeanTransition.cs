@@ -19,7 +19,7 @@ namespace Lean.Transition
 
 		public const string MethodsMenuSuffix = " Transition ";
 
-		public const string HelpUrlPrefix = "http://carloswilkes.com/Documentation/LeanTransition#";
+		public const string HelpUrlPrefix = "https://carloswilkes.com/Documentation/LeanTransition#";
 
 		/// <summary>This allows you to set where in the game loop animations are updated when timing = LeanTime.Default.</summary>
 		public LeanTiming DefaultTiming { set { defaultTiming = value; } get { return defaultTiming; } } [SerializeField] [UnityEngine.Serialization.FormerlySerializedAs("Timing")] private LeanTiming defaultTiming = LeanTiming.UnscaledUpdate;
@@ -132,6 +132,12 @@ namespace Lean.Transition
 			}
 		}
 
+		public static void AddAlias(string key, Object obj)
+		{
+			currentAliases.Remove(key);
+			currentAliases.Add(key, obj);
+		}
+
 		/// <summary>This method will return the specified timing, unless it's set to <b>Default</b>, then it will return <b>UnscaledTime</b>.</summary>
 		public static LeanTiming GetTiming(LeanTiming current = LeanTiming.Default)
 		{
@@ -205,23 +211,6 @@ namespace Lean.Transition
 			baseMethodStack.Clear();
 		}
 
-		public static void BeginTransitions(List<Transform> roots, float speed = 1.0f)
-		{
-			ResetState();
-
-			if (roots != null)
-			{
-				RequireSubmitted();
-
-				for (var i = 0; i < roots.Count; i++)
-				{
-					InsertTransitions(roots[i], speed);
-
-					Submit();
-				}
-			}
-		}
-
 		/// <summary>This will begin all transitions on the specified GameObject, all its children, and then submit them.
 		/// If you failed to submit a previous transitions then this will also throw an error.</summary>
 		public static void BeginAllTransitions(Transform root, float speed = 1.0f)
@@ -282,22 +271,6 @@ namespace Lean.Transition
 
 				currentSpeed = spd;
 			}
-		}
-
-		/// <summary>This method returns all TargetAliases on all transitions on the specified Transforms.</summary>
-		public static Dictionary<string,System.Type> FindAllAliasTypePairs(List<Transform> roots)
-		{
-			aliasTypePairs.Clear();
-
-			if (roots != null)
-			{
-				for (var i = 0; i < roots.Count; i++)
-				{
-					AddAliasTypePairs(roots[i]);
-				}
-			}
-
-			return aliasTypePairs;
 		}
 
 		/// <summary>This method returns all TargetAliases on all transitions on the specified Transform.</summary>
@@ -456,7 +429,6 @@ namespace Lean.Transition
 				        fixedUpdateStates.Clear();
 			}
 		}
-
 #if UNITY_EDITOR
 		private void DelayCall()
 		{
@@ -510,7 +482,7 @@ namespace Lean.Transition
 			}
 		}
 
-		/// <summary>This method will mark all tranisitions as Conflict = true if they match the transition type and target object of the specified transition.</summary>
+		/// <summary>This method will mark all tranisitions as Skip = true if they match the transition type and target object of the specified transition.</summary>
 		private void RemoveConflictsBefore(List<LeanState> states, LeanState currentState, int currentIndex)
 		{
 			var currentConflict = currentState.Conflict;

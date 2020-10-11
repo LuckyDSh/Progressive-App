@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.EventSystems;
 using Lean.Common;
+using System.Collections.Generic;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -12,20 +13,58 @@ namespace Lean.Gui
 	[AddComponentMenu(LeanGui.ComponentMenuPrefix + "Move To Top")]
 	public class LeanMoveToTop : MonoBehaviour, IPointerDownHandler
 	{
+		public enum MoveType
+		{
+			ThisTransform,
+			TargetTransform,
+			ParentComponents
+		}
+
+		/// <summary>This allows you to choose which component to perform the action on.
+		/// ThisTransform = transform.SetAsLastSibling().
+		/// TargetTransform = Target.SetAsLastSibling().
+		/// ParentComponents = Invoke all <b>LeanMoveToTop</b> ancestor components.</summary>
+		public MoveType Move { set { move = value; } get { return move; } } [SerializeField] private MoveType move;
+
 		/// <summary>If you want a different transform to be moved when pressing down on this UI element, then specify it here.
 		/// None = The current GameObject's transform.</summary>
 		public Transform Target { set { target = value; } get { return target; } } [SerializeField] private Transform target;
 
+		private static List<LeanMoveToTop> tempOthers = new List<LeanMoveToTop>();
+
 		public void OnPointerDown(PointerEventData eventData)
 		{
-			var finalTransform = target;
-
-			if (finalTransform == null)
+			switch (move)
 			{
-				finalTransform = transform;
-			}
+				case MoveType.ThisTransform:
+				{
+					transform.SetAsLastSibling();
+				}
+				break;
 
-			finalTransform.SetAsLastSibling();
+				case MoveType.TargetTransform:
+				{
+					if (target != null)
+					{
+						target.SetAsLastSibling();
+					}
+				}
+				break;
+
+				case MoveType.ParentComponents:
+				{
+					GetComponentsInParent(false, tempOthers);
+
+					foreach (var other in tempOthers)
+					{
+						if (other.move != MoveType.ParentComponents)
+						{
+							other.OnPointerDown(eventData);
+						}
+					}
+				}
+				break;
+			}
 		}
 	}
 }
@@ -39,7 +78,16 @@ namespace Lean.Gui
 	{
 		protected override void DrawInspector()
 		{
-			Draw("target", "If you want a different transform to be moved when pressing down on this UI element, then specify it here.\n\nNone = The current GameObject's transform.");
+			Draw("move", "This allows you to choose which component to perform the action on.\n\nThisTransform = transform.SetAsLastSibling().\n\nTargetTransform = Target.SetAsLastSibling().\n\nParentComponents = Invoke all <b>LeanMoveToTop</b> ancestor components.");
+
+			if (Any(t => t.Move == LeanMoveToTop.MoveType.TargetTransform))
+			{
+				EditorGUI.indentLevel++;
+					BeginError(Any(t => t.Target == null));
+						Draw("target", "If you want a different transform to be moved when pressing down on this UI element, then specify it here.\n\nNone = The current GameObject's transform.");
+					EndError();
+				EditorGUI.indentLevel--;
+			}
 		}
 	}
 }

@@ -198,7 +198,7 @@ namespace Lean.Gui
 					origin = RectTransformUtility.WorldToScreenPoint(pointer.pressEventCamera, worldPoint);
 				}
 
-				var v = RectTransformUtility.ScreenPointToLocalPointInRectangle(CachedRectTransform, origin, pointer.pressEventCamera, out offset);
+				RectTransformUtility.ScreenPointToLocalPointInRectangle(CachedRectTransform, origin, pointer.pressEventCamera, out offset);
 
 				if (downTransitions != null)
 				{

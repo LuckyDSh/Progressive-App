@@ -88,7 +88,7 @@ namespace Lean.Gui
 		{
 			if (this == Instances[0])
 			{
-				if (Input.GetKeyDown(CloseKey) == true)
+				if (LeanInput.GetDown(CloseKey) == true)
 				{
 					CloseTopMost();
 				}
